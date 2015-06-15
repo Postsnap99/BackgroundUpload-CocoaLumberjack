@@ -112,10 +112,10 @@
 - (void)uploadArchivedFiles
 {
     [self.session getTasksWithCompletionHandler:^(NSArray *dataTasks, NSArray *uploadTasks, NSArray *downloadTasks) {
-        dispatch_async([DDLog loggingQueue], ^{ @autoreleasepool {
+        dispatch_async([PS_DDLog loggingQueue], ^{ @autoreleasepool {
             NSArray *fileInfos = [self unsortedLogFileInfos];
             NSMutableSet *filesToUpload = [NSMutableSet setWithCapacity:[fileInfos count]];
-            for (DDLogFileInfo *fileInfo in fileInfos) {
+            for (PS_DDLogFileInfo *fileInfo in fileInfos) {
                 if (fileInfo.isArchived) {
                     [filesToUpload addObject:fileInfo.filePath];
                 }
@@ -181,7 +181,7 @@
 {
     PDLog(@"BackgroundUploadLogFileManager: upload: %@ didCompleteWithError: %@", filePath, error);
     
-    dispatch_async([DDLog loggingQueue], ^{ @autoreleasepool {
+    dispatch_async([PS_DDLog loggingQueue], ^{ @autoreleasepool {
         if (!error) {
             NSError *deleteError;
             [[NSFileManager defaultManager] removeItemAtPath:filePath error:&deleteError];
@@ -208,7 +208,7 @@
 - (void)URLSessionDidFinishEventsForBackgroundURLSession:(NSURLSession *)session
 {
     // ensure all deletes are complete before calling completion
-    dispatch_async([DDLog loggingQueue], ^{
+    dispatch_async([PS_DDLog loggingQueue], ^{
         dispatch_async(dispatch_get_main_queue(), ^{
             if (self.completionHandler) {
                 self.completionHandler();
