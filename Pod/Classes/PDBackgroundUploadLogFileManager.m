@@ -98,42 +98,54 @@
 
 - (void)setupSession
 {
-    NSURLSessionConfiguration *backgroundConfiguration;
-    if ([NSURLSessionConfiguration respondsToSelector:@selector(backgroundSessionConfigurationWithIdentifier:)]) {
-        backgroundConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:[self sessionIdentifier]];
+    void (^block)() = ^{
+        NSURLSessionConfiguration *backgroundConfiguration;
+        if ([NSURLSessionConfiguration respondsToSelector:@selector(backgroundSessionConfigurationWithIdentifier:)]) {
+            backgroundConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:[self sessionIdentifier]];
+        } else {
+            backgroundConfiguration = [NSURLSessionConfiguration backgroundSessionConfiguration:[self sessionIdentifier]];
+        }
+        backgroundConfiguration.discretionary = self.discretionary;
+        self.session = [NSURLSession sessionWithConfiguration:backgroundConfiguration delegate:self delegateQueue:nil];
+    };
+
+    // on nsurlsessiond crashes, sessionWithConfiguration can block for a long time,
+    // but from the background make sure we set up synhronously in didFinishLaunchingWithOptions
+    if ([[UIApplication sharedApplication] applicationState] == UIApplicationStateBackground) {
+        dispatch_sync([DDLog loggingQueue], block);
     } else {
-        backgroundConfiguration = [NSURLSessionConfiguration backgroundSessionConfiguration:[self sessionIdentifier]];
+        dispatch_async([DDLog loggingQueue], block);
     }
-    backgroundConfiguration.discretionary = self.discretionary;
-    self.session = [NSURLSession sessionWithConfiguration:backgroundConfiguration delegate:self delegateQueue:nil];
 }
 
 // retries any files that may have errored
 - (void)uploadArchivedFiles
 {
-    [self.session getTasksWithCompletionHandler:^(NSArray *dataTasks, NSArray *uploadTasks, NSArray *downloadTasks) {
-        dispatch_async([PS_DDLog loggingQueue], ^{ @autoreleasepool {
-            NSArray *fileInfos = [self unsortedLogFileInfos];
-            NSMutableSet *filesToUpload = [NSMutableSet setWithCapacity:[fileInfos count]];
-            for (PS_DDLogFileInfo *fileInfo in fileInfos) {
-                if (fileInfo.isArchived) {
-                    [filesToUpload addObject:fileInfo.filePath];
+    dispatch_async([DDLog loggingQueue], ^{
+        [self.session getTasksWithCompletionHandler:^(NSArray *dataTasks, NSArray *uploadTasks, NSArray *downloadTasks) {
+            dispatch_async([DDLog loggingQueue], ^{ @autoreleasepool {
+                NSArray *fileInfos = [self unsortedLogFileInfos];
+                NSMutableSet *filesToUpload = [NSMutableSet setWithCapacity:[fileInfos count]];
+                for (DDLogFileInfo *fileInfo in fileInfos) {
+                    if (fileInfo.isArchived) {
+                        [filesToUpload addObject:fileInfo.filePath];
+                    }
                 }
-            }
-            
-            for (NSURLSessionTask *task in uploadTasks) {
-                [filesToUpload removeObject:[self filePathForTask:task]];
-            }
-            
-            for (NSString *filePath in filesToUpload) {
-                if ([[NSFileManager defaultManager] isReadableFileAtPath:filePath]) {
-                    [self uploadLogFile:filePath];
-                } else {
-                    NSAssert(NO, @"file that came from log file infos should be readable");
+
+                for (NSURLSessionTask *task in uploadTasks) {
+                    [filesToUpload removeObject:[self filePathForTask:task]];
                 }
-            }
-        }});
-    }];
+
+                for (NSString *filePath in filesToUpload) {
+                    if ([[NSFileManager defaultManager] isReadableFileAtPath:filePath]) {
+                        [self uploadLogFile:filePath];
+                    } else {
+                        NSAssert(NO, @"file that came from log file infos should be readable");
+                    }
+                }
+            }});
+        }];
+    });
 }
 
 - (void)uploadLogFile:(NSString *)logFilePath
@@ -180,7 +192,7 @@
 - (void)uploadFilePath:(NSString *)filePath didCompleteWithError:(NSError *)error
 {
     PDLog(@"BackgroundUploadLogFileManager: upload: %@ didCompleteWithError: %@", filePath, error);
-    
+
     dispatch_async([PS_DDLog loggingQueue], ^{ @autoreleasepool {
         if (!error) {
             NSError *deleteError;
@@ -196,7 +208,7 @@
             NSUInteger i = [filePaths indexOfObjectPassingTest:^BOOL(id obj, NSUInteger idx, BOOL *stop) {
                 return [filePath isEqualToString:obj];
             }];
-            
+
             // only call back with failure if this was the last retry
             if (i == NSNotFound || i >= self.maximumNumberOfLogFiles - 1) {
                 [self.delegate uploadTaskForFilePath:filePath didCompleteWithError:error];

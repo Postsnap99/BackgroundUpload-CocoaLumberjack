@@ -7,6 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#define DD_LEGACY_MACROS 0
 #import <CocoaLumberjack/PS_DDLog.h>
 #import <CocoaLumberjack/PS_DDFileLogger.h>
 
@@ -36,14 +37,14 @@
 
 /**
  Initializes
- 
+
  @param uploadRequest template request whose body will be set to the content of the log files
  */
 - (instancetype)initWithUploadRequest:(NSURLRequest *)uploadRequest;
 
 /**
  Initializes
- 
+
  @param uploadRequest template request whose body will be set to the content of the log files
  @param discretionary passed to NSURLSessionConfiguration.discretionary
  */
@@ -51,7 +52,7 @@
 
 /**
  Initializes
- 
+
  @param uploadRequest template request whose body will be set to the content of the log files
  @param discretionary passed to NSURLSessionConfiguration.discretionary
  @param delegate to notify about uploads
@@ -62,7 +63,7 @@
 #if TARGET_OS_IPHONE
 /**
  Initializes
- 
+
  @param uploadRequest template request whose body will be set to the content of the log files
  @param discretionary passed to NSURLSessionConfiguration.discretionary
  @param delegate to notify about uploads
