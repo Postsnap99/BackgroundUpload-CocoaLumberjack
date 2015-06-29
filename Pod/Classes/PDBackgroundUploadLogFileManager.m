@@ -112,21 +112,21 @@
     // on nsurlsessiond crashes, sessionWithConfiguration can block for a long time,
     // but from the background make sure we set up synhronously in didFinishLaunchingWithOptions
     if ([[UIApplication sharedApplication] applicationState] == UIApplicationStateBackground) {
-        dispatch_sync([DDLog loggingQueue], block);
+        dispatch_sync([PS_DDLog loggingQueue], block);
     } else {
-        dispatch_async([DDLog loggingQueue], block);
+        dispatch_async([PS_DDLog loggingQueue], block);
     }
 }
 
 // retries any files that may have errored
 - (void)uploadArchivedFiles
 {
-    dispatch_async([DDLog loggingQueue], ^{
+    dispatch_async([PS_DDLog loggingQueue], ^{
         [self.session getTasksWithCompletionHandler:^(NSArray *dataTasks, NSArray *uploadTasks, NSArray *downloadTasks) {
-            dispatch_async([DDLog loggingQueue], ^{ @autoreleasepool {
+            dispatch_async([PS_DDLog loggingQueue], ^{ @autoreleasepool {
                 NSArray *fileInfos = [self unsortedLogFileInfos];
                 NSMutableSet *filesToUpload = [NSMutableSet setWithCapacity:[fileInfos count]];
-                for (DDLogFileInfo *fileInfo in fileInfos) {
+                for (PS_DDLogFileInfo *fileInfo in fileInfos) {
                     if (fileInfo.isArchived) {
                         [filesToUpload addObject:fileInfo.filePath];
                     }
